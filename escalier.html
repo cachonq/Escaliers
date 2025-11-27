@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Escaliers</title>
+<style>
+  body { font-family: Arial, sans-serif; background:#0b1220; color:#e5e7eb; margin:0; padding:0; }
+  header { padding:1rem 1.5rem; background:#020617; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #111827; }
+  header h2 { margin:0; font-size:1.1rem; }
+  header button { padding:0.45rem 1rem; border-radius:0.5rem; border:none; cursor:pointer; font-weight:600; background:#22c55e; color:#022c22; }
+  #container { display:flex; min-height:calc(100vh - 56px); }
+
+  /* Scoreboard */
+  #scoreboard { width:200px; background:#020617; border-right:1px solid #111827; padding:1rem; box-sizing:border-box; }
+  #scoreboard h3 { margin:0 0 0.5rem; font-size:0.95rem; }
+  
+  /* Trick Counter */
+  #trickCounter { margin-top: 1rem; padding-top: 0.5rem; border-top: 1px solid #111827; }
+  #trickCounter table { margin-top: 0.5rem; }
+  #trickCounter td:last-child { font-weight: bold; }
+
+  #scoreTable { width:100%; font-size:0.85rem; border-collapse:collapse; }
+  #scoreTable td { padding:3px 4px; }
+  #scoreTable tr:nth-child(4) td { font-weight:bold; }
+
+  /* Game area */
+  #game { flex:1; padding:1rem 1.5rem; box-sizing:border-box; }
+  #roundInfo { margin-bottom:0.25rem; font-size:0.9rem; }
+  #status { font-size:0.85rem; color:#9ca3af; margin-bottom:0.5rem; }
+
+  #biddingArea { margin:0.5rem 0 0.75rem; }
+  #biddingArea select { padding:0.2rem 0.4rem; border-radius:0.4rem; border:1px solid #374151; background:#020617; color:#e5e7eb; }
+  #biddingArea button { padding:0.3rem 0.7rem; border-radius:0.4rem; border:none; background:#3b82f6; color:#eff6ff; font-weight:600; cursor:pointer; }
+
+  #handTitle { margin:0.5rem 0 0.25rem; }
+  #hand { display:flex; flex-wrap:wrap; gap:6px; min-height:110px; }
+  .card-img { width:72px; height:100px; border-radius:6px; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.5); transition:transform 0.15s, opacity 0.15s; background:#020617; }
+  .card-img:hover { transform:translateY(-4px); }
+  .card-disabled { opacity:0.3; cursor:default; box-shadow:none; transform:none !important; }
+
+  #trickTitle { margin:0.75rem 0 0.25rem; }
+  #trick { display:flex; gap:18px; }
+  .slot { text-align:center; font-size:0.8rem; }
+  .slot img { width:72px; height:100px; border-radius:6px; background:#020617; }
+  
+  /* Turn Indicator CSS */
+  .turn-indicator { 
+    border: 3px solid #22c55e; /* Green border */
+    border-radius: 8px;
+    padding: 2px;
+  }
+
+  /* Trick Winner Indicator CSS */
+  .trick-winner { 
+    border: 3px solid #facc15; /* Gold/Yellow border */
+    border-radius: 8px;
+    padding: 2px;
+  }
+  
+  /* Log Card Icons */
+  .card-icon { font-size: 1.1em; margin: 0 2px; display: inline-block; vertical-align: middle; }
+  .red { color: #f87171; }
+  .black { color: #e5e7eb; }
+
+  .fade-in { animation:fade 0.25s ease-in; }
+  @keyframes fade { from { opacity:0; } to { opacity:1; } }
+
+  #ledInfo { margin-top:0.25rem; font-size:0.8rem; color:#9ca3af; }
+
+  #logTitle { margin:0.75rem 0 0.25rem; }
+  #log { max-height:220px; overflow-y:auto; padding:0.5rem; background:#020617; border-radius:0.5rem; border:1px solid #111827; font-size:0.8rem; }
+</style>
+</head>
+<body>
+<header>
+  <h2>Escaliers</h2>
+  <button id="newGame">New Game</button>
+</header>
+<div id="container">
+  <aside id="scoreboard">
+    <h3>Scores</h3>
+    <table id="scoreTable">
+      <tr><td>West</td><td id="s0">0</td></tr>
+      <tr><td>North</td><td id="s1">0</td></tr>
+      <tr><td>East</td><td id="s2">0</td></tr>
+      <tr><td>You</td><td id="s3">0</td></tr>
+    </table>
+
+    <div id="trickCounter">
+        <h3>Tricks Taken / Bid</h3>
+        <table id="trickTable">
+            <tr><td>West</td><td id="tB0">0 / 0</td></tr>
+            <tr><td>North</td><td id="tB1">0 / 0</td></tr>
+            <tr><td>East</td><td id="tB2">0 / 0</td></tr>
+            <tr><td>You</td><td id="tB3">0 / 0</td></tr>
+        </table>
+    </div>
+
+  </aside>
+  <main id="game">
+    <div id="roundInfo"></div>
+    <div id="status">Click "New Game" to begin Escaliers.</div>
+
+    <div id="biddingArea" style="display:none;">
+      <label for="yourBid">Your bid:</label>
+      <select id="yourBid"></select>
+      <button id="confirmBid">Confirm Bid</button>
+    </div>
+
+    <h3 id="handTitle">Your Hand</h3>
+    <div id="hand"></div>
+
+    <h3 id="trickTitle">Current Trick</h3>
+    <div id="trick">
+      <div class="slot" id="slot0"><div>West</div><img id="t0"></div>
+      <div class="slot" id="slot1"><div>North</div><img id="t1"></div>
+      <div class="slot" id="slot2"><div>East</div><img id="t2"></div>
+      <div class="slot" id="slot3"><div>You</div><img id="t3"></div>
+    </div>
+    <div id="ledInfo">Led suit: –</div>
+
+    <h3 id="logTitle">Log</h3>
+    <div id="log"></div>
+  </main>
+</div>
+
+<script>
+// ===== Card images =====
+function cardImage(card) {
+  return `https://deckofcardsapi.com/static/img/${card}.png`;
+}
+function cardBack() {
+  return "https://deckofcardsapi.com/static/img/back.png";
+}
+
+// ===== Game constants =====
+const SUITS = ["S","H","D","C"];
+const RANKS = ["2","3","4","5","6","7","8","9","0","J","Q","K","A"]; // 0 = 10
+const RANK_VAL = {"2":2,"3":3,"4":4,"5":5,"6":6,"7":7,"8":8,"9":9,"0":10,"J":11,"Q":12,"K":13,"A":14};
+const NAMES = ["West","North","East","You"];
+const ROUND_PATTERN = [1,2,3,4,5,6,7,8,13,13,13,13,13,13,13,13,8,7,6,5,4,3,2,1];
+
+const state = {
+  round: 0,
+  dealer: 0,
+  scores: [0,0,0,0],
+  hands: [[],[],[],[]],
+  bids: [null,null,null,null],
+  tricks: [0,0,0,0],
+  trick: [null,null,null,null],
+  cardsThisRound: 0,
+  leader: 0,
+  turn: 0,
+  trickNum: 0,
+  trump: null,
+  phase: "idle"
+};
+
+// ===== Helpers =====
+function newDeck() {
+  const d = [];
+  for (const s of SUITS) for (const r of RANKS) d.push(r + s);
+  return shuffle(d);
+}
+
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function sortHand(hand) {
+  hand.sort((a, b) => {
+    const sa = SUITS.indexOf(a[1]);
+    const sb = SUITS.indexOf(b[1]);
+    if (sa !== sb) return sa - sb; // suit order
+    return RANK_VAL[b[0]] - RANK_VAL[a[0]]; // high → low
+  });
+}
+
+function getCardIcon(card) {
+    if (!card || card.length !== 2) return card;
+    const rank = card[0];
+    const suit = card[1];
+    
+    // Convert 0 back to 10 for display
+    const displayRank = rank === '0' ? '10' : rank; 
+    
+    let suitSymbol;
+    let colorClass;
+
+    switch (suit) {
+        case 'S': suitSymbol = '♠'; colorClass = 'black'; break;
+        case 'H': suitSymbol = '♥'; colorClass = 'red'; break;
+        case 'D': suitSymbol = '♦'; colorClass = 'red'; break;
+        case 'C': suitSymbol = '♣'; colorClass = 'black'; break;
+        default: return card;
+    }
+
+    return `<span class="card-icon ${colorClass}">${displayRank}${suitSymbol}</span>`;
+}
+
+
+function log(msg) {
+  // Replace card abbreviations (e.g., 'AS', '0H') with styled icons in the log message
+  let formattedMsg = msg.replace(/([2-9AJKQ0])([SHDC])/g, (match, rank, suit) => getCardIcon(match));
+
+  const box = document.getElementById('log');
+  box.innerHTML += formattedMsg + '<br>';
+  box.scrollTop = box.scrollHeight;
+}
+
+function setStatus(msg) {
+  document.getElementById('status').textContent = msg;
+}
+
+function updateScores() {
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('s' + i).textContent = state.scores[i];
+  }
+}
+
+function updateRoundInfo() {
+  const dealerName = NAMES[state.dealer];
+  document.getElementById('roundInfo').innerHTML =
+    `Round ${state.round + 1} / ${ROUND_PATTERN.length} — Dealer: <b>${dealerName}</b>`;
+}
+
+function updateTrickCounter() {
+    for (let i = 0; i < 4; i++) {
+        const bid = state.bids[i] !== null ? state.bids[i] : '–';
+        document.getElementById('tB' + i).textContent = `${state.tricks[i]} / ${bid}`;
+    }
+}
+
+// Function to clear all turn indicators (green) and winner indicators (gold)
+function clearIndicators() {
+    for (let i = 0; i < 4; i++) {
+        document.getElementById('slot' + i).classList.remove('turn-indicator');
+        document.getElementById('slot' + i).classList.remove('trick-winner');
+    }
+}
+
+// ===== Game flow =====
+function startGame() {
+  state.round = 0;
+  state.dealer = 0;
+  state.scores = [0,0,0,0];
+  updateScores();
+  document.getElementById('log').innerHTML = '';
+  clearIndicators();
+  startRound();
+}
+
+function startRound() {
+  const cards = ROUND_PATTERN[state.round];
+  state.cardsThisRound = cards;
+  state.hands = [[],[],[],[]];
+  state.bids = [null,null,null,null];
+  state.tricks = [0,0,0,0];
+  state.trick = [null,null,null,null];
+  state.leader = (state.dealer + 1) % 4;
+  state.turn = state.leader;
+  state.trickNum = 1;
+  state.trump = (cards === 13 ? null : 'H');
+  
+  // Clear UI
+  document.getElementById('hand').innerHTML = '';
+  for (let i = 0; i < 4; i++) {
+    document.getElementById('t' + i).removeAttribute('src');
+  }
+  document.getElementById('ledInfo').textContent = 'Led suit: –';
+  clearIndicators();
+  updateTrickCounter(); // Reset trick counter display
+
+  // Deal
+  const deck = newDeck();
+  for (let i = 0; i < cards; i++) {
+    for (let p = 0; p < 4; p++) {
+      state.hands[p].push(deck.pop());
+    }
+  }
+  for (let p = 0; p < 4; p++) sortHand(state.hands[p]);
+
+  updateRoundInfo();
+  log(`--- Round ${state.round + 1}: ${cards} cards each ---`);
+  log(state.trump ? 'Trump: Hearts' : 'No trump this round');
+
+  state.phase = 'bidding';
+  
+  // Determine bidding order: starts with player after dealer, ends with dealer
+  const dealer = state.dealer;
+  const lastBidder = dealer; // Dealer bids last
+  let currentBidder = (dealer + 1) % 4;
+
+  while (currentBidder !== lastBidder) {
+    if (currentBidder === 3) {
+      prepareBidUI(false); // Human is not the last bidder
+      renderHand();
+      return; // Wait for human to confirm bid
+    } else {
+      botBid(currentBidder);
+    }
+    currentBidder = (currentBidder + 1) % 4;
+  }
+  
+  // The last bidder is the dealer. Check if the human is the dealer.
+  if (lastBidder === 3) {
+    prepareBidUI(true); // Human is the last bidder (dealer)
+  } else {
+    botBid(lastBidder);
+    // If the dealer (last bidder) is a bot, start playing immediately
+    startPlaying(); 
+  }
+  renderHand(); // Render your hand
+}
+
+function startPlaying() {
+  state.phase = 'playing';
+  state.turn = state.leader;
+  setStatus(`${NAMES[state.leader]} leads. Trump: ${state.trump ? 'Hearts' : 'None'}.`);
+  continueTurn();
+}
+
+// ===== Bidding =====
+function prepareBidUI(isLastBidder) {
+  const area = document.getElementById('biddingArea');
+  const sel = document.getElementById('yourBid');
+  area.style.display = 'block';
+  sel.innerHTML = '';
+
+  const cards = state.cardsThisRound;
+  let otherTotal = 0;
+  for (let i = 0; i < 4; i++) {
+    if (i !== 3) { // Sum all bids that are NOT the human's bid (player 3)
+      otherTotal += (state.bids[i] || 0);
+    }
+  }
+
+  for (let i = 0; i <= cards; i++) {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = i;
+    
+    // Oh Hell rule: as last bidder, you cannot make total bids == tricks
+    if (isLastBidder && (otherTotal + i === cards)) {
+      opt.disabled = true;
+      opt.textContent = i + ' (illegal)';
+    }
+    sel.appendChild(opt);
+  }
+
+  sel.value = Math.min(Math.floor(cards / 4), cards);
+  setStatus('Place your bid. ' + (isLastBidder ? 'You bid last, total bids cannot equal tricks.' : 'Trump: ' + (state.trump ? 'Hearts' : 'None') + '.'));
+}
+
+function botBid(p) {
+  const hand = state.hands[p];
+  let score = 0;
+  for (const c of hand) {
+    const rv = RANK_VAL[c[0]];
+    if (rv >= 11) score += 1; // J+
+    if (rv >= 13) score += 0.5; // K/A bonus
+    if (state.trump && c[1] === state.trump) score += 0.5; // trump bonus
+  }
+  let bid = Math.round(score / 2);
+  if (bid > hand.length) bid = hand.length;
+  if (bid < 0) bid = 0;
+
+  // If this bot is the last bidder (dealer), ensure the illegal bid rule is followed
+  if (p === state.dealer) {
+    const cards = state.cardsThisRound;
+    let otherTotal = 0;
+    for (let i = 0; i < 4; i++) {
+      if (i !== p) {
+        otherTotal += (state.bids[i] || 0);
+      }
+    }
+    // If the chosen bid makes the total equal to cards, change the bid by 1
+    if (otherTotal + bid === cards) {
+      // Find a legal bid quickly: try +1, else -1, else fall back
+      if (bid + 1 <= cards && otherTotal + bid + 1 !== cards) {
+        bid++;
+      } else if (bid - 1 >= 0 && otherTotal + bid - 1 !== cards) {
+        bid--;
+      } else {
+        // Fallback: If 0/max trick is illegal, pick a legal number between 0 and max
+        for (let i = 0; i <= cards; i++) {
+            if (otherTotal + i !== cards) {
+                bid = i;
+                break;
+            }
+        }
+      }
+    }
+  }
+
+  state.bids[p] = bid;
+  log(`${NAMES[p]} bids ${bid}`);
+  updateTrickCounter(); // Update bid display
+}
+
+function onConfirmBid() {
+  const sel = document.getElementById('yourBid');
+  let bid = Number(sel.value);
+  const cards = state.cardsThisRound;
+  
+  // Calculate total of existing bids (excluding the human's)
+  let otherTotal = 0;
+  for (let i = 0; i < 4; i++) {
+    if (i !== 3) {
+      otherTotal += (state.bids[i] || 0);
+    }
+  }
+
+  // Determine if the human is the last bidder (the dealer)
+  const isLastBidder = (state.dealer === 3);
+
+  // Safety: enforce rule only if the human is the last bidder
+  if (isLastBidder && (otherTotal + bid === cards)) {
+    alert('Illegal bid: total bids cannot equal number of tricks.');
+    return;
+  }
+
+  state.bids[3] = bid;
+  log(`You bid ${bid}`);
+  document.getElementById('biddingArea').style.display = 'none';
+  updateTrickCounter(); // Update bid display
+
+  // Continue the bidding sequence if the human was NOT the last bidder
+  if (!isLastBidder) {
+    let currentBidder = (3 + 1) % 4; // Start from the player after the human
+    const lastBidder = state.dealer;
+    
+    // Process remaining bot bids until the dealer is reached
+    while (currentBidder !== lastBidder) {
+      botBid(currentBidder);
+      currentBidder = (currentBidder + 1) % 4;
+    }
+    
+    // Process the last bidder (dealer), who is a bot
+    botBid(lastBidder);
+    startPlaying();
+    
+  } else {
+    // Human was the last bidder (dealer), start playing
+    startPlaying();
+  }
+}
+
+// ===== Play / tricks =====
+function isCardPlayable(player, card) {
+  const ledCard = state.trick[state.leader];
+  if (!ledCard) return true; // no suit led yet
+  const ledSuit = ledCard[1];
+  const hand = state.hands[player];
+  const hasLed = hand.some(c => c[1] === ledSuit);
+  if (!hasLed) return true;
+  return card[1] === ledSuit;
+}
+
+function renderHand() {
+  const div = document.getElementById('hand');
+  div.innerHTML = '';
+
+  const ledCard = state.trick[state.leader];
+  const ledSuit = ledCard ? ledCard[1] : null;
+
+  state.hands[3].forEach(card => {
+    const img = document.createElement('img');
+    img.src = cardImage(card);
+    img.className = 'card-img';
+
+    const canPlay = (state.phase === 'playing' && state.turn === 3) ? isCardPlayable(3, card) : false;
+
+    if (state.phase !== 'playing' || state.turn !== 3) {
+      // Not your turn; just show cards
+      img.classList.add('card-disabled');
+    } else if (!canPlay) {
+      img.classList.add('card-disabled');
+    } else {
+      img.onclick = () => playCard(3, card);
+    }
+
+    div.appendChild(img);
+  });
+}
+
+function continueTurn() {
+  if (state.phase !== 'playing') return;
+  
+  clearIndicators(); // Clear previous indicators (needed when resuming after a trick)
+  document.getElementById('slot' + state.turn).classList.add('turn-indicator'); // Add green indicator to current player
+
+  // Update led suit display
+  const ledCard = state.trick[state.leader];
+  if (ledCard) {
+    const suit = ledCard[1];
+    const name = suit === 'S' ? 'Spades' : suit === 'H' ? 'Hearts' : suit === 'D' ? 'Diamonds' : 'Clubs';
+    document.getElementById('ledInfo').textContent = 'Led suit: ' + name;
+  } else {
+    document.getElementById('ledInfo').textContent = 'Led suit: –';
+  }
+
+  if (state.turn === 3) {
+    setStatus('Your turn. Follow suit if you can.');
+    renderHand();
+    return;
+  }
+
+  // Bot turn
+  setStatus(`${NAMES[state.turn]} is thinking...`);
+  setTimeout(() => {
+    const card = chooseBotCard(state.turn);
+    playCard(state.turn, card);
+  }, 500);
+}
+
+function chooseBotCard(p) {
+  const hand = state.hands[p];
+  // Choose lowest playable card
+  let playable = hand.filter(c => isCardPlayable(p, c));
+  if (playable.length === 0) playable = hand.slice();
+  
+  // Basic bot strategy: Play the lowest card that is legal.
+  playable.sort((a, b) => RANK_VAL[a[0]] - RANK_VAL[b[0]]); 
+  return playable[0];
+}
+
+function playCard(p, card) {
+  const hand = state.hands[p];
+  const idx = hand.indexOf(card);
+  if (idx !== -1) hand.splice(idx, 1);
+  
+  // Remove turn indicator from the player who just played
+  document.getElementById('slot' + p).classList.remove('turn-indicator'); 
+
+  state.trick[p] = card;
+  const img = document.getElementById('t' + p);
+  img.src = cardImage(card);
+  img.classList.remove('fade-in');
+  void img.offsetWidth; // force reflow
+  img.classList.add('fade-in');
+
+  log(`${NAMES[p]} plays ${card}`);
+
+  const playedCount = state.trick.filter(c => c !== null).length;
+  if (playedCount === 4) {
+    // 1. CALCULATE WINNER IMMEDIATELY
+    const winner = calculateWinner(); 
+    
+    // 2. HIGHLIGHT WINNER AND SET STATUS
+    document.getElementById('slot' + winner).classList.add('trick-winner');
+    setStatus(`Trick won by ${NAMES[winner]}! Cards clearing in 1.5s...`);
+
+    // 3. WAIT 1.5 SECONDS, THEN CLEAR AND CONTINUE
+    setTimeout(() => {
+        endTrick(winner);
+    }, 1500);
+  } else {
+    state.turn = (state.turn + 1) % 4;
+    continueTurn();
+  }
+}
+
+// Function to calculate the winner (synchronous part of trick resolution)
+function calculateWinner() {
+  const lead = state.leader;
+  const ledCard = state.trick[lead];
+  const ledSuit = ledCard[1];
+  let best = lead;
+
+  for (let i = 1; i < 4; i++) {
+    const p = (lead + i) % 4;
+    const c = state.trick[p];
+    if (!c) continue;
+    const bestCard = state.trick[best];
+
+    // Priority 1: Check for trump (if trump exists)
+    const isTrump = state.trump && c[1] === state.trump;
+    const isBestTrump = state.trump && bestCard[1] === state.trump;
+
+    if (isTrump && !isBestTrump) {
+        best = p; // New card is trump, current best is not
+    } else if (isTrump && isBestTrump) {
+        if (RANK_VAL[c[0]] > RANK_VAL[bestCard[0]]) best = p; // Higher trump
+    } 
+    // Priority 2: Check for led suit (only if current best isn't a trump)
+    else if (!isBestTrump) {
+        if (c[1] === ledSuit && bestCard[1] === ledSuit && RANK_VAL[c[0]] > RANK_VAL[bestCard[0]]) {
+            best = p; // Higher card in led suit
+        }
+    }
+  }
+  return best;
+}
+
+// Function to clear the trick and continue (delayed part of trick resolution)
+function endTrick(winner) {
+  state.tricks[winner]++;
+  // Note: We avoid logging the winner again here, as it was logged in playCard/calculateWinner flow.
+  // Instead, update the counter and move on.
+  updateTrickCounter(); // Update tricks taken
+
+  // Clear card images
+  for (let i = 0; i < 4; i++) {
+    state.trick[i] = null;
+    document.getElementById('t' + i).removeAttribute('src');
+  }
+  // Clear winner (gold) and turn (green) indicators
+  clearIndicators(); 
+
+  state.leader = winner;
+  state.turn = winner;
+
+  if (state.trickNum >= state.cardsThisRound) {
+    endRound();
+  } else {
+    state.trickNum++;
+    continueTurn();
+  }
+}
+
+function endRound() {
+  log(`--- End of round ${state.round + 1} scoring ---`);
+  for (let p = 0; p < 4; p++) {
+    const bid = state.bids[p] || 0;
+    const won = state.tricks[p] || 0;
+    let delta;
+    
+    if (bid === won) {
+        // Made bid: Base 10 points + (Tricks Taken * 5 points)
+        delta = 10 + (won * 5);
+    } else {
+        const difference = Math.abs(bid - won);
+        if (difference === 1) {
+            // Missed by 1 (Near Miss)
+            delta = 5;
+        } else {
+            // Missed by 2 or more (Bad Miss)
+            delta = -10;
+        }
+    }
+    
+    state.scores[p] += delta;
+    log(`${NAMES[p]}: bid ${bid}, took ${won} → ${delta >= 0 ? '+' : ''}${delta}`);
+  }
+  updateScores();
+
+  state.dealer = (state.dealer + 1) % 4;
+
+  if (state.round >= ROUND_PATTERN.length - 1) {
+    finishGame();
+  } else {
+    state.round++;
+    setTimeout(startRound, 1200);
+  }
+}
+
+function finishGame() {
+  log('<br>*** GAME OVER ***');
+  const max = Math.max(...state.scores);
+  const winners = [];
+  for (let i = 0; i < 4; i++) if (state.scores[i] === max) winners.push(NAMES[i]);
+  log(`Winner(s): ${winners.join(', ')} with ${max} points.`);
+  setStatus('Game over. Click "New Game" to play again.');
+}
+
+// ===== Wire up UI =====
+document.getElementById('newGame').addEventListener('click', startGame);
+document.getElementById('confirmBid').addEventListener('click', onConfirmBid);
+
+// Initial
+updateScores();
+updateRoundInfo();
+</script>
+</body>
+</html>
