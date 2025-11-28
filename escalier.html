@@ -180,16 +180,40 @@
     width: 85px; 
     height: 120px; 
     border-radius: 6px; 
-    cursor: pointer; 
+    /* Changed to 'grab' to indicate movable */
+    cursor: grab; 
     box-shadow: 0 4px 10px rgba(0,0,0,0.5); 
-    transition: transform 0.2s, margin 0.2s; 
+    transition: transform 0.2s, margin 0.2s, opacity 0.2s; 
     margin-right: -45px; 
     border: 1px solid #000;
     position: relative;
   }
   .card-img:last-child { margin-right: 0; }
-  .card-img:hover { transform: translateY(-25px) scale(1.1); z-index: 100; margin-right: 10px; margin-left: 10px; }
-  .card-disabled { filter: brightness(0.5); cursor: default; transform: none !important; margin-right: -45px !important; }
+  
+  /* Active dragging state */
+  .card-img:active { cursor: grabbing; }
+
+  /* Hover effect only if not dragging or disabled */
+  .card-img:hover { 
+    transform: translateY(-25px) scale(1.1); 
+    z-index: 100; 
+    margin-right: 10px; 
+    margin-left: 10px; 
+  }
+  
+  .card-disabled { 
+    filter: brightness(0.5); 
+    /* Keep grab cursor so users know they can still rearrange disabled cards */
+    cursor: grab; 
+    transform: none !important; 
+    margin-right: -45px !important; 
+  }
+
+  /* Style for card currently being dragged */
+  .card-dragging {
+    opacity: 0.4;
+    cursor: grabbing;
+  }
 
   /* --- Bidding Modal --- */
   #biddingArea { 
@@ -595,14 +619,19 @@ function isCardPlayable(player, card) {
   return card[1] === ledSuit;
 }
 
+// --- Drag and Drop Variables ---
+let draggedItemIndex = null;
+
 function renderHand() {
   const div = document.getElementById('hand');
   div.innerHTML = '';
   
-  state.hands[3].forEach(card => {
+  state.hands[3].forEach((card, index) => {
     const img = document.createElement('img');
     img.src = cardImage(card);
     img.className = 'card-img';
+    img.dataset.index = index; // Store index for reordering
+    img.draggable = true; // Make draggable
 
     const canPlay = (state.phase === 'playing' && state.turn === 3) ? isCardPlayable(3, card) : false;
 
@@ -613,8 +642,49 @@ function renderHand() {
     } else {
       img.onclick = () => playCard(3, card);
     }
+
+    // Attach Drag Events
+    img.addEventListener('dragstart', onDragStart);
+    img.addEventListener('dragover', onDragOver);
+    img.addEventListener('drop', onDrop);
+    img.addEventListener('dragend', onDragEnd);
+
     div.appendChild(img);
   });
+}
+
+// --- Drag Functions ---
+function onDragStart(e) {
+    draggedItemIndex = Number(this.dataset.index);
+    this.classList.add('card-dragging');
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function onDragOver(e) {
+    e.preventDefault(); // Necessary to allow drop
+    e.dataTransfer.dropEffect = 'move';
+}
+
+function onDrop(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const targetIndex = Number(this.dataset.index);
+
+    if (draggedItemIndex !== null && draggedItemIndex !== targetIndex) {
+        // Rearrange Hand Array
+        const hand = state.hands[3];
+        const item = hand.splice(draggedItemIndex, 1)[0];
+        hand.splice(targetIndex, 0, item);
+        
+        // Re-render
+        renderHand();
+    }
+    return false;
+}
+
+function onDragEnd(e) {
+    this.classList.remove('card-dragging');
+    draggedItemIndex = null;
 }
 
 function continueTurn() {
